@@ -12,9 +12,21 @@ namespace JpegBookMaker
         public int Level, Contrast;
         public bool IsGrayScale;
 
+        public PageInfo()
+        {
+        }
+
         public PageInfo(string path)
         {
             Path = path;
+        }
+
+        public Bitmap GetBitmap()
+        {
+            if (Path != null)
+                return new Bitmap(Path);
+            else
+                return null;
         }
     }
 }

@@ -42,7 +42,7 @@ namespace JpegBookMaker
         public PicturePanel Panel2 { get { return panel2; } }
 
         private int defaultLevel, defaultContrast;
-        private PageInfo common = new PageInfo(null);
+        private PageInfo common = new PageInfo();
 
         public BookPanel()
         {
@@ -152,7 +152,7 @@ namespace JpegBookMaker
                     case ".tiff":
                         var fn = Path.GetFileName(file);
                         var fn2 = Path.GetFileNameWithoutExtension(file);
-                        var pi = new PageInfo(fn);
+                        var pi = new PageInfo(Path.Combine(path, fn));
                         listView1.Items.Add(new ListViewItem(fn2) { Tag = pi, Checked = true });
                         break;
                 }
@@ -233,9 +233,9 @@ namespace JpegBookMaker
             panel1.Bitmap = panel2.Bitmap = null;
             Bitmap bmp1 = null, bmp2 = null;
             if (li1 != null && li1.Tag is PageInfo)
-                bmp1 = new Bitmap(Path.Combine(ImagePath, (li1.Tag as PageInfo).Path));
+                bmp1 = (li1.Tag as PageInfo).GetBitmap();
             if (li2 != null && li2.Tag is PageInfo)
-                bmp2 = new Bitmap(Path.Combine(ImagePath, (li2.Tag as PageInfo).Path));
+                bmp2 = (li2.Tag as PageInfo).GetBitmap();
             panel1.Bitmap = bmp1;
             panel2.Bitmap = bmp2;
             if (common.Bounds.IsEmpty) setBoxes();
@@ -545,18 +545,8 @@ namespace JpegBookMaker
         {
             if (ignore) return;
 
-            PicturePanel p2;
-            bool isLeft;
-            if (p1 == panel1)
-            {
-                p2 = panel2;
-                isLeft = !rightBinding;
-            }
-            else
-            {
-                p2 = panel1;
-                isLeft = rightBinding;
-            }
+            var isLeft = isLeftPanel(p1);
+            var p2 = p1 == panel1 ? panel2 : panel1;
             var li1 = p1.Tag as ListViewItem;
             var li2 = p2.Tag as ListViewItem;
             if (li1 == null || p1.Bitmap == null) return;
@@ -583,6 +573,17 @@ namespace JpegBookMaker
             p1.Refresh();
             p2.Refresh();
             OnBoxResize(EventArgs.Empty);
+        }
+
+        private bool isLeftPanel(PicturePanel pp)
+        {
+            return pp == panel1 ? !rightBinding : rightBinding;
+        }
+
+        private bool isLeftPage(int index)
+        {
+            int i1 = index & 1;
+            return rightBinding ? i1 == 1 : i1 == 0;
         }
 
         public PicturePanel SelectedPanel
@@ -619,36 +620,28 @@ namespace JpegBookMaker
                 count = listView1.Items.Count;
             }));
             int p = 0;
-            Rectangle[] boxes;
-            if (panel1.Left < panel2.Left)
-                boxes = new[] { panel1.BoxBounds, panel2.BoxBounds };
-            else
-                boxes = new[] { panel2.BoxBounds, panel1.BoxBounds };
             for (int i = 0, no = 1; i < count; i++)
             {
                 if (bw.CancellationPending) break;
                 int pp = i * 100 / count;
                 if (p != pp) bw.ReportProgress(p = pp);
 
-                PageInfo pi = null;
+                PageInfo pi = null, lpi = null;
                 Bitmap src = null;
-                string path = null;
                 Invoke(new Action(() =>
                 {
                     var li = listView1.Items[i];
-                    if (li == panel1.Tag)
+                    if (li == panel1.Tag && panel1.Bitmap != null)
                         src = new Bitmap(panel1.Bitmap);
-                    else if (li == panel2.Tag)
+                    else if (li == panel2.Tag && panel2.Bitmap != null)
                         src = new Bitmap(panel2.Bitmap);
                     pi = getInfo(li);
-                    if (li.Tag is PageInfo)
-                        path = (li.Tag as PageInfo).Path;
+                    lpi = li.Tag as PageInfo;
                 }));
-                if (pi == null || path == null) continue;
-                if (src == null)
-                    src = new Bitmap(Path.Combine(ImagePath, path));
+                if (lpi == null) continue;
+                if (src == null) src = lpi.GetBitmap();
                 Utils.AdjustLevels(src, pi.IsGrayScale ? pi.Level : 5);
-                var box = boxes[i & 1];
+                var box = pi == common && !isLeftPage(i) ? mirror(pi.Bounds, src) : pi.Bounds;
                 using (var bmp = GetBitmap(src, box, ow, oh))
                 {
                     Utils.AdjustContrast(bmp, pi.IsGrayScale ? pi.Contrast * 16 : 128);
