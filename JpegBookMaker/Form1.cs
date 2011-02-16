@@ -83,6 +83,7 @@ namespace JpegBookMaker
                 toolStripStatusLabel2.Text = w + "x" + h;
                 toolStripStatusLabel3.Text = (h / w).ToString("0.00");
             }
+            statusStrip1.Refresh();
         }
 
         private void viewHelpToolStripMenuItem_Click(object sender, EventArgs e)
