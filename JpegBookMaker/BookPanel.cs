@@ -23,11 +23,7 @@ namespace JpegBookMaker
                 if (rightBinding == value) return;
                 rightBinding = value;
                 adjustPanel();
-                var r = panel1.BoxBounds;
-                ignore = true;
-                panel1.BoxBounds = panel2.BoxBounds;
-                panel2.BoxBounds = r;
-                ignore = false;
+                setBoxBounds();
             }
         }
 
@@ -106,7 +102,7 @@ namespace JpegBookMaker
             p2.Bounds = new Rectangle(w, 0, sz.Width - w, sz.Height);
         }
 
-        private void ClearPanel()
+        private void clearPanel()
         {
             if (panel1.Bitmap != null) panel1.Bitmap.Dispose();
             if (panel2.Bitmap != null) panel2.Bitmap.Dispose();
@@ -115,26 +111,16 @@ namespace JpegBookMaker
         }
 
         private bool stop = false;
-        public string ImagePath { get; private set; }
 
-        public void Open(string path)
+        private string imagePath;
+
+        public void OpenDir(string path)
         {
-            ImagePath = path;
-            ClearPanel();
-            RightBinding = false;
-            stop = true;
-            SetBitmap(null, null);
-            lastFocused = null;
-            common.Level = defaultLevel;
-            common.Contrast = defaultContrast;
-            common.Bounds = Rectangle.Empty;
-            trackBar1.Value = defaultLevel;
-            trackBar2.Value = defaultContrast;
-            checkBox1.Checked = false;
-            lastFocused = null;
-            OnBoxResize(EventArgs.Empty);
+            CloseDir();
+            adjustPanel();
+            imagePath = path;
 
-            listView1.Items.Clear();
+            stop = true;
             listView1.BeginUpdate();
             listView1.Items.Add(new ListViewItem("(空)") { Checked = true });
             var files = new List<string>(Directory.GetFiles(path));
@@ -159,10 +145,31 @@ namespace JpegBookMaker
             }
             listView1.EndUpdate();
             stop = false;
+
             ShowPage(listView1.Items[0]);
             checkBox1.Enabled = true;
             checkBox1.Checked = false;
             panel1.Focus();
+        }
+
+        public void CloseDir()
+        {
+            clearPanel();
+            imagePath = null;
+            RightBinding = false;
+            stop = true;
+            SetBitmap(null, null);
+            lastFocused = null;
+            common.Level = defaultLevel;
+            common.Contrast = defaultContrast;
+            common.Bounds = Rectangle.Empty;
+            trackBar1.Value = defaultLevel;
+            trackBar2.Value = defaultContrast;
+            checkBox1.Checked = false;
+            lastFocused = null;
+            OnBoxResize(EventArgs.Empty);
+            listView1.Items.Clear();
+            stop = false;
         }
 
         private void setBoxes()
@@ -239,21 +246,18 @@ namespace JpegBookMaker
             panel1.Bitmap = bmp1;
             panel2.Bitmap = bmp2;
             if (common.Bounds.IsEmpty) setBoxes();
-            ignore = true;
-            panel1.BoxBounds = getBounds(panel1);
-            panel2.BoxBounds = getBounds(panel2);
-            ignore = false;
+            setBoxBounds();
             setState();
 
             Cursor.Current = cur;
         }
 
-        private Rectangle mirror(Rectangle r, Bitmap bmp)
+        private void setBoxBounds()
         {
-            if (bmp == null)
-                return Rectangle.Empty;
-            else
-                return new Rectangle(bmp.Width - r.Right, r.Y, r.Width, r.Height);
+            ignore = true;
+            panel1.BoxBounds = getBounds(panel1);
+            panel2.BoxBounds = getBounds(panel2);
+            ignore = false;
         }
 
         private Rectangle getBounds(PicturePanel pp)
@@ -273,6 +277,14 @@ namespace JpegBookMaker
                 var pi = li.Tag as PageInfo;
                 return pi != null ? pi.Bounds : Rectangle.Empty;
             }
+        }
+
+        private Rectangle mirror(Rectangle r, Bitmap bmp)
+        {
+            if (bmp == null)
+                return Rectangle.Empty;
+            else
+                return new Rectangle(bmp.Width - r.Right, r.Y, r.Width, r.Height);
         }
 
         private void listView1_SelectedIndexChanged(object sender, EventArgs e)
@@ -610,17 +622,46 @@ namespace JpegBookMaker
 
         public void Save(BackgroundWorker bw, int ow, int oh, bool r)
         {
-            var dir = ImagePath;
-            var outdir = Path.Combine(dir, "output");
+            var outdir = Path.Combine(imagePath, "output");
             if (!Directory.Exists(outdir))
                 Directory.CreateDirectory(outdir);
+            int no = 1;
+            getEachBitmap(bw, ow, oh, r, bmp =>
+            {
+                var jpg = Path.Combine(outdir, string.Format("{0:0000}.jpg", no++));
+                bmp.Save(jpg, ImageFormat.Jpeg);
+            });
+        }
+
+        private int countBitmap()
+        {
+            int ret = 0;
+            int count = 0;
+            Invoke(new Action(() =>
+            {
+                count = listView1.Items.Count;
+            }));
+            for (int i = 0; i < count; i++)
+            {
+                PageInfo lpi = null;
+                Invoke(new Action(() =>
+                {
+                    lpi = listView1.Items[i].Tag as PageInfo;
+                }));
+                if (lpi != null) ret++;
+            }
+            return ret;
+        }
+
+        private void getEachBitmap(BackgroundWorker bw, int ow, int oh, bool r, Action<Bitmap> delg)
+        {
             int count = 0;
             Invoke(new Action(() =>
             {
                 count = listView1.Items.Count;
             }));
             int p = 0;
-            for (int i = 0, no = 1; i < count; i++)
+            for (int i = 0; i < count; i++)
             {
                 if (bw.CancellationPending) break;
                 int pp = i * 100 / count;
@@ -647,8 +688,7 @@ namespace JpegBookMaker
                     Utils.AdjustContrast(bmp, pi.IsGrayScale ? pi.Contrast * 16 : 128);
                     if (pi.IsGrayScale) Utils.GrayScale(bmp);
                     if (r) bmp.RotateFlip(RotateFlipType.Rotate270FlipNone);
-                    var jpg = Path.Combine(outdir, string.Format("{0:0000}.jpg", no++));
-                    bmp.Save(jpg, ImageFormat.Jpeg);
+                    delg(bmp);
                 }
                 src.Dispose();
             }

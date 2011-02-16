@@ -38,7 +38,7 @@ namespace JpegBookMaker
 
             var path = folderBrowserDialog1.SelectedPath;
             toolStripStatusLabel1.Text = path;
-            bookPanel1.Open(path);
+            bookPanel1.OpenDir(path);
             rightBindingToolStripMenuItem.Checked = bookPanel1.RightBinding;
             saveToolStripMenuItem.Enabled = true;
         }
