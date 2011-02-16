@@ -216,7 +216,7 @@ namespace JpegBookMaker
                 panel2.Selected = li == li2;
                 stop = stp;
             }
-            OnResize(EventArgs.Empty);
+            OnBoxResize(EventArgs.Empty);
         }
 
         private void SetBitmap(ListViewItem li1, ListViewItem li2)
@@ -554,7 +554,7 @@ namespace JpegBookMaker
                 (li.Tag as PageInfo).Bounds = r1;
             panel1.Refresh();
             panel2.Refresh();
-            OnResize(EventArgs.Empty);
+            OnBoxResize(EventArgs.Empty);
         }
 
         private void panel2_BoxResize(object sender, EventArgs e)
@@ -580,7 +580,7 @@ namespace JpegBookMaker
                 (li.Tag as PageInfo).Bounds = r2;
             panel1.Refresh();
             panel2.Refresh();
-            OnResize(EventArgs.Empty);
+            OnBoxResize(EventArgs.Empty);
         }
 
         public PicturePanel SelectedPanel
