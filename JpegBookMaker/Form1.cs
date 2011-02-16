@@ -13,13 +13,11 @@ namespace JpegBookMaker
 {
     public partial class Form1 : Form
     {
-        private SaveDialog saveDialog = new SaveDialog();
         private BookPanelHelp help;
 
         public Form1()
         {
             InitializeComponent();
-            saveDialog.BookPanel = bookPanel1;
 #if DEBUG
             const string dir = @"D:\pdf2jpeg";
             if (Directory.Exists(dir))
@@ -45,7 +43,12 @@ namespace JpegBookMaker
 
         private void saveToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            saveDialog.ShowDialog(this);
+            using (var saveDialog = new SaveDialog())
+            {
+                saveDialog.BookPanel = bookPanel1;
+                saveDialog.PDF = null;
+                saveDialog.ShowDialog(this);
+            }
         }
 
         private void selectAllToolStripMenuItem_Click(object sender, EventArgs e)
